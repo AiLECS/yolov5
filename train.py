@@ -22,9 +22,8 @@ import random
 import sys
 import time
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -463,6 +462,7 @@ def parse_opt(known=False):
     parser.add_argument('--save-period', type=int, default=-1, help='Save checkpoint every x epochs (disabled if < 1)')
     parser.add_argument('--seed', type=int, default=0, help='Global training seed')
     parser.add_argument('--local_rank', type=int, default=-1, help='Automatic DDP Multi-GPU argument, do not modify')
+    parser.add_argument('--ddp-timeout', type=int, default=18000, help='Timeout for initialising DDP')
 
     # Logger arguments
     parser.add_argument('--entity', default=None, help='Entity')
@@ -517,7 +517,8 @@ def main(opt, callbacks=Callbacks()):
         assert torch.cuda.device_count() > LOCAL_RANK, 'insufficient CUDA devices for DDP command'
         torch.cuda.set_device(LOCAL_RANK)
         device = torch.device('cuda', LOCAL_RANK)
-        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo")
+        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo",
+                                timeout=timedelta(seconds=opt.ddp_timeout))
 
     # Train
     if not opt.evolve:
